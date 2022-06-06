@@ -1,0 +1,278 @@
+Vayamos por partes, como decía Jack el destripador:
+1. Crear un paquete controlador que contenga una clase (ControladorConversion)
+con dos atributos uno para el modelo y otro para la vista ("primer problema")
+1.1 como la vista puede ser cualquier interfaz(Swing, Web, terminal, ...) como lo solucionamos?? (IEurosPesetas)
+Pues... creando una interfaz con las operaciones comunes que tienen que cumplir para la comunicación de la vista con el modelo o simplemente para inicializar la vista, ...
+Así pues, nos vamos al packages vista y creamos la interfaz IEurosPesetas y por el momento pues no le ponemos ningún método
+1.2 por tanto ya podemos hacer que nuestras vistas digan que implementarán esa interfaz:
+- public class FEurosPesetas extends JFrame implements IEurosPesetas
+- public class TEurosPesetas  implements IEurosPesetas
+1.3 ya podemos crear los atributos en esta clase y  crear un constructor que los inicialice
+2. Vamos a preparar el entorno de ejecución de los programas principales teniendo en cuenta el MVC
+Por ejemplo:
+ * Swing:
+        // creamos el modelo de trabajo
+        ConversorEuros modelo = new ConversorEurosPesetas();
+        // creamos la vista
+        IEurosPesetas vista = new FEurosPesetas();
+        // creamos el controlador
+        ControladorConversion controlador = new ControladorConversion(modelo,vista);
+ * Terminal
+         // creamos el modelo de trabajo
+         ConversorEuros modelo = new ConversorEurosPesetas();
+         // creamos la vista
+         IEurosPesetas vista = new TEurosPesetas();
+         // creamos el controlador
+         ControladorConversion controlador = new ControladorConversion(modelo,vista);
+ 2.1. Ahora nos queda lanzar la vista, es decir, podría estar bien tener un método que lo hiciese, no??
+ vista.lanzar();
+ pues nada para eso lo único que tenemos que hacer es añadir al nuestra interfaz pues ese método:
+ public interface IEurosPesetas {
+     void lanzar();
+2.2 Ahora nos toca implementarlo en las clases FEurosPesetas y TEurosPesetas...
+* Swing:
+    @Override
+    public void lanzar() {
+        setVisible(true);
+    }
+* Terminal:
+    @Override
+    public void lanzar() {
+        carga();
+    }
+3. Bien ya tenemos lanzado las vistas, como sabemos en el MVC:
+3.1. el Controlador se comunica con la Vista y el Modelo, eso ya lo tenemos pues añadimos al controlador esos dos atributos
+3.2. la vista a través del controlador, se comunica con el modelo.
+En realidad es el usuario el que con eventos se comunica con el controlador, pero para eso hace falta añadir una nueva propiedad en las vista que sea el controlador
+3.2.1. Debemos añadir una propiedad en las vistas que sea el controlador:
+private ControladorConversion controlador;
+* Swing:
+public class FEurosPesetas extends JFrame implements IEurosPesetas{
+    private ControladorConversion controlador;
+* Terminal:
+public class TEurosPesetas extends JFrame implements IEurosPesetas{
+    private ControladorConversion controlador;
+3.2.2. De alguna manera debemos inicializar ese atributo con el creado en el inicio.
+Qué mejor manera que un setter?? por ejemplo
+Ya tenemos otro método que debe cumplir todas las vistas EurosPesetas, ¿cómo lo hacemos?
+Nuevo método en la interfaz IEurosPesetas
+void setControlador(ControladorConversion controlador);
+    @Override
+    public void setControlador(ControladorConversion controlador) {
+        this.controlador=controlador;
+    }
+3.4. donde le pasomos el controlador, pues como vemos en los Test me parece un buen sitio
+vista.setControlador(controlador);
+4. ¿Qué nos queda??
+Nos queda las acciones/operaciones que interactuán con el módelo y que el realiza usuario desde la interfaz (vista),
+ sean las mismas se hagan desde donde se hagan (Swing, Web, Terminal,...) y deberán realizarse desde el controlador
+4.1. Vamos a ver que acciones tenemos:
+Tenemos dos acciones: Convertir a Euros y convertir aPesetas
+ 4.1.1. Convertir a pesetas:
+* Swing:
+if (Auxiliar.isDouble(eCantidad.getText())) {
+    double cantidad = Double.parseDouble(eCantidad.getText());
+    eResultado.setText(String.format("%.2f euros son %f pesetas",
+            cantidad,
+            conversor.eurosAmoneda(cantidad)));  <---
+}
+else eResultado.setText("Error, formato del número (99.99)");
+
+* Terminal:
+cantidad=leeCantidad();
+System.out.printf("%.2f euros son %f pesetas",
+                cantidad2,
+                conversor.eurosAmoneda(cantidad) ); <---
+
+Analicemos ámbos códigos, que veis en común???
+1º hay una parte que necesita saber una cantidad
+2º la otra realiza una acción/operación con esa cantidad
+conversor.eurosAmoneda(cantidad))
+Ambos tiene que leer la cantidad desde la interfaz y luego posteriormente mostrar el resultado de la operación
+Bueno...
+4.2. Creamos en el controlador la operación que queremos realizar son dos,
+así que, se me ocurre hacer un switch para implementar ambas en un único método,
+pero vamos que si queréis hacer dos:
+public Double convertir(int id,double cantidad){
+    switch (id){
+        case A_EUROS: return modelo.monedaAeuros(cantidad);
+        case A_PTAS: return modelo.eurosAmoneda(cantidad);
+        default: return 0.0D;
+    }
+}
+4.3. vamos a usarlo:
+* Swing:
+convertirApesetas.addActionListener(new ActionListener() {
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (Auxiliar.isDouble(eCantidad.getText())) {
+            double cantidad = Double.parseDouble(eCantidad.getText());
+            eResultado.setText(controlador.convertir(ControladorConversion.A_PTAS,cantidad)+"");
+        }
+        else eResultado.setText("Error, formato del número (99.99)");
+    }
+});
+*Terminal:
+    double cantidad2=leeCantidad();
+    System.out.printf("%.2f euros son %f pesetas",
+            cantidad2,
+            controlador.convertir(ControladorConversion.A_PTAS,cantidad2));
+    break;
+4.4. hacerlo con lo mismo con la otra operación
+4.5. Ya podemos quitar de las vistas el acceso directamente a el modelo, es decir:
+
+* Swing:
+import modelo.ConversorEuros;
+import modelo.ConversorEurosPesetas;
+private ConversorEuros conversor=new ConversorEurosPesetas();
+
+* Terminal
+import modelo.ConversorEuros;
+import modelo.ConversorEurosPesetas;
+private ConversorEuros conversor=new ConversorEurosPesetas();
+
+4.6. Con este último punto podemos ver como hemos quitado la comunicación de la vista con el modelo,
+ahora quien se encarga de comunicarse con el modelo es el controlador.
+Pero podríamos hacer que el controlador trabajase tambien con la vista, como ha hecho con el modelo.
+¿Cómo?
+
+5. Volvamos a analizar el código que hemos dejado en la vista:
+* Swing:
+convertirApesetas.addActionListener(new ActionListener() {
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (Auxiliar.isDouble(eCantidad.getText())) {
+            double cantidad = Double.parseDouble(eCantidad.getText()); <- aquí tenemos lo que podría ser un getter para cantidad
+            eResultado.setText(controlador.convertir(ControladorConversion.A_PTAS,cantidad)+"");
+        }
+        else eResultado.setText("Error, formato del número (99.99)");
+    }
+});
+*Terminal:
+    double cantidad2=leeCantidad(); <- aquí tenemos lo que podría ser un getter para cantidad
+    System.out.printf("%.2f euros son %f pesetas",
+            cantidad2,
+            controlador.convertir(ControladorConversion.A_PTAS,cantidad2));
+    break;
+
+5.1. Empecemos por el getter de cantidad, con el objetivo de usar esas instrucciones
+desde el controlador, de la siguiente manera:
+// Código actual
+public Double convertir(int id,double cantidad){
+    switch (id){
+        case A_EUROS: return modelo.monedaAeuros(cantidad);
+        case A_PTAS: return modelo.eurosAmoneda(cantidad);
+        default: return 0.0D;
+    }
+}
+
+//código deseado:
+public Double convertir(int id){
+    double cantidad=vista.getCantidad();
+    switch (id){
+        case A_EUROS: return modelo.monedaAeuros(cantidad);
+        case A_PTAS: return modelo.eurosAmoneda(cantidad);
+        default: return 0.0D;
+    }
+}
+5.2. Cambios a efectuar:
+5.2.1. Añadir a la interfaz IEurosPesetas
+double getCantidad();
+5.2.2. Implementamos en las vistas el correspondiente método:
+* Swing:
+    @Override
+    public double getCantidad() {
+        return Double.parseDouble(eCantidad.getText());
+    }
+* Terminal:
+    @Override
+    public double getCantidad() {
+        return cantidad;
+    }
+5.2.3. Por tanto, el código en las vistas podría quedar así:
+* Swing
+    if (Auxiliar.isDouble(eCantidad.getText())) {
+        double resultado = controlador.convertir(ControladorConversion.A_PTAS);
+        eResultado.setText(String.format("%.2f euros son %f pesetas",     <- setter de resultado
+                getCantidad(),resultado));
+    }
+    else eResultado.setText("Error, formato del número (99.99)");
+* Terminal
+cantidad=leeCantidad();
+double resultado = controlador.convertir(ControladorConversion.A_PTAS);
+System.out.printf("%.2f euros son %.2f pesetas\n",           <- setter de resultado
+        getCantidad(),resultado));
+5.3. Pero todavía podríamos hacer más.
+Si nos fijamos en el código anterior,
+podríamos hacer desde el controlador la asignación de los setter de resultado. ¿Cómo?
+//código deseado:
+public void convertir(int id){
+    double cantidad=vista.getCantidad();
+    switch (id){
+        case A_EUROS: vista.setResultado(id,modelo.monedaAeuros(cantidad));break;
+        case A_PTAS: vista.setResultado(id,modelo.eurosAmoneda(cantidad));break;
+        default: vista.setResultado(id,0);break;
+    }
+}
+5.3.1. Añadimos a la interfaz IEurosPesetas el setter para resultado
+void setResultado(int id, double resultado);
+5.3.2. Implementamos en las vistas el correspondiente método:
+* Swing:
+    @Override
+    public void setResultado(int id,double resultado) {
+        switch (id) {
+            case ControladorConversion.A_EUROS:
+                eResultado.setText(String.format("%f pesetas son %.2f euros",
+                        getCantidad(),
+                        resultado));
+                break;
+            case ControladorConversion.A_PTAS:
+                eResultado.setText(String.format("%.2f euros son %f pesetas",
+                        getCantidad(), resultado));
+                break;
+            default:
+                eResultado.setText("Tipo desconocido");
+                break;
+        }
+    }
+* Terminal:
+    public void setResultado(int id,double resultado) {
+        switch (id) {
+            case ControladorConversion.A_EUROS:
+                System.out.println(String.format("%f pesetas son %.2f euros",
+                        getCantidad(),
+                        resultado));
+                break;
+            case ControladorConversion.A_PTAS:
+                System.out.println(String.format("%.2f euros son %f pesetas",
+                        getCantidad(), resultado));
+                break;
+            default:
+                System.out.println("Tipo desconocido");
+                break;
+        }
+    }
+
+5.3.3. Finalmente, el código en las vistas cuando ejecutamos las acciones quedaría, así:
+* Swing
+   if (Auxiliar.isDouble(eCantidad.getText())) {
+       controlador.convertir(ControladorConversion.A_PTAS);
+   }
+   else eResultado.setText("Error, formato del número (99.99)");
+* Terminal
+    cantidad=leeCantidad();
+    controlador.convertir(ControladorConversion.A_PTAS);
+
+5.4. Con estas últimas modificaciones añadidas en el punto 5,
+hemos conseguido que el controlador sea el encargado no solo de comunicarse con el modelo,
+sino de actuar tambien sobre la vista:
+public void convertir(int id){
+    switch (id){
+        case A_EUROS: vista.setResultado(id,modelo.monedaAeuros(vista.getCantidad()));break;
+        case A_PTAS: vista.setResultado(id,modelo.eurosAmoneda(vista.getCantidad()));break;
+        default: vista.setResultado(id,0);break;
+    }
+}
+5.5. Se deja para un estudio en como se haría para que el convertir
+fuese el método de ejecución de un evento ActionEvent. Ver código en moodle
+6. F I N explicación M V C
